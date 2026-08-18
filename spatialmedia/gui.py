@@ -1,7 +1,8 @@
+import sys
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QIcon
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +22,19 @@ from PyQt6.QtWidgets import (
 
 # Import the core engine tools
 from spatialmedia import metadata_utils
+
+
+def resolve_resource_path(relative_path):
+    """Get the absolute path to a resource, handling PyInstaller temporary runtime paths safely."""
+    try:
+        # If running inside a compiled PyInstaller .exe, use its secret temp folder path
+        base_path = Path(sys._MEIPASS)
+    except AttributeError:
+        # If running as raw source code in VS Code, use the repository root folder path
+        # (This walks up one level from spatialmedia/gui.py to reach the root folder)
+        base_path = Path(__file__).resolve().parent.parent
+
+    return base_path / relative_path
 
 
 class BatchWorker(QThread):
@@ -244,6 +258,17 @@ class SpatialMediaBatchGui(QMainWindow):
 
         # Inject the centered sub-layout into the window's main layout stack
         layout.addLayout(run_button_layout)
+
+        # Load your icon using the dynamic resource path resolver
+
+        icon_path = resolve_resource_path("assets/icons/app_icon.png")
+
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        else:
+            self.log_console.append(
+                f"[Warning] Window icon graphic asset missing at path: {icon_path.name}"
+            )
 
     # ==========================================
     # NEW: DRAG AND DROP INTERACTION EVENT HANDLERS
