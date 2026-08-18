@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -141,31 +141,66 @@ class SpatialMediaBatchGui(QMainWindow):
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
 
-        # Top Control Action Bar
-        top_bar = QHBoxLayout()
-        btn_open_dir = QPushButton("📁 Load Videos Directory")
+        # Style sheet definition for clean, modern monospaced directory strips
+        label_style = "color: #555555; background-color: #f8f9fa; padding: 6px; border: 1px solid #e9ecef; border-radius: 4px; font-family: Consolas, monospace;"
+
+        # Main horizontal container that splits the paths layout from the checkbox panel
+        paths_and_checkbox_container = QHBoxLayout()
+
+        # Left Column: Stacks the input row and output row vertically
+        path_rows_stack = QVBoxLayout()
+
+        # ROW 1: Input controls grouped horizontally
+        input_row = QHBoxLayout()
+        btn_open_dir = QPushButton("📁 Load Videos")
+        btn_open_dir.setMinimumWidth(150)
         btn_open_dir.clicked.connect(self.select_input_directory)
 
-        self.btn_output_dir = QPushButton("📂 Set Custom Output Directory")
+        self.lbl_input_path = QLabel("Input Directory: Not Selected")
+        self.lbl_input_path.setStyleSheet(label_style)
+
+        input_row.addWidget(btn_open_dir)
+        input_row.addWidget(self.lbl_input_path, stretch=1)
+        path_rows_stack.addLayout(input_row)
+
+        # ROW 2: Output controls grouped horizontally
+        output_row = QHBoxLayout()
+        self.btn_output_dir = QPushButton("📂 Set Output")
+        self.btn_output_dir.setMinimumWidth(150)
         self.btn_output_dir.clicked.connect(self.select_output_directory)
 
+        self.lbl_output_path = QLabel("Output Directory: Same as Input (Default)")
+        self.lbl_output_path.setStyleSheet(label_style)
+
+        output_row.addWidget(self.btn_output_dir)
+        output_row.addWidget(self.lbl_output_path, stretch=1)
+        path_rows_stack.addLayout(output_row)
+
+        # Add the stacked path rows to the main horizontal container
+        paths_and_checkbox_container.addLayout(path_rows_stack, stretch=1)
+
+        # Right Column: The Overwrite Checkbox (Takes up the full height of both rows)
+        checkbox_panel = QVBoxLayout()
         self.chk_overwrite = QCheckBox("⚠️ Overwrite Source Files")
+
+        # Center the checkbox vertically relative to the two rows next to it
+        checkbox_panel.addWidget(self.chk_overwrite)
         self.chk_overwrite.toggled.connect(self.toggle_overwrite_mode)
 
-        top_bar.addWidget(btn_open_dir)
-        top_bar.addWidget(self.btn_output_dir)
-        top_bar.addWidget(self.chk_overwrite)
-        layout.addLayout(top_bar)
+        paths_and_checkbox_container.addLayout(checkbox_panel)
 
-        # Target Batch Processing Table Grid View Control Element
+        # Inject the entire aligned top block into the window layout
+        layout.addLayout(paths_and_checkbox_container)
+
+        # Target Batch Processing Table Grid View
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
             [
                 "Source File Name",
-                "Projection Environment",
-                "Stereoscopic Mode",
+                "Projection",
+                "Stereoscopic",
                 "Spatial Audio",
-                "Remove Action",
+                "Remove",
             ]
         )
         self.table.horizontalHeader().setSectionResizeMode(
@@ -173,14 +208,14 @@ class SpatialMediaBatchGui(QMainWindow):
         )
         layout.addWidget(self.table)
 
-        # Running Diagnostic Log Console Window Layout
+        # Diagnostic Log Console Window
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setMaximumHeight(120)
         layout.addWidget(QLabel("Diagnostic Injection Log:"))
         layout.addWidget(self.log_console)
 
-        # Bottom Pipeline Execution Button Wrapper Action Loop
+        # Bottom Execution Action Loop
         self.btn_run = QPushButton("⚡ Run Batch Injection Sequence")
         self.btn_run.setStyleSheet(
             "background-color: #28a745; color: white; font-weight: bold; padding: 12px; font-size: 14px;"
@@ -192,8 +227,30 @@ class SpatialMediaBatchGui(QMainWindow):
         """Disables output directory controls when users choose to overwrite the sources directly."""
         self.btn_output_dir.setDisabled(checked)
         if checked:
+            self.lbl_output_path.setText(
+                "Output Directory: [OVERWRITE ACTIVE] Original source files will be replaced."
+            )
+            self.lbl_output_path.setStyleSheet(
+                "color: #b71c1c; background-color: #ffebee; padding: 4px; border: 1px solid #ffcdd2; border-radius: 4px; font-family: Consolas, monospace; font-weight: bold;"
+            )
             self.log_console.append(
                 "[System Output Notice] Overwrite active. Output parameters will adapt dynamically."
+            )
+        else:
+            if self.output_directory:
+                self.lbl_output_path.setText(
+                    f"Output Directory: {self.output_directory}"
+                )
+            elif self.input_directory:
+                self.lbl_output_path.setText(
+                    f"Output Directory: Same as Input ({self.input_directory})"
+                )
+            else:
+                self.lbl_output_path.setText(
+                    "Output Directory: Same as Input (Default)"
+                )
+            self.lbl_output_path.setStyleSheet(
+                "color: #555555; background-color: #f8f9fa; padding: 6px; border: 1px solid #e9ecef; border-radius: 4px; font-family: Consolas, monospace;"
             )
 
     def select_input_directory(self):
@@ -202,9 +259,15 @@ class SpatialMediaBatchGui(QMainWindow):
         )
         if dir_path:
             self.input_directory = Path(dir_path)
-            self.table.setRowCount(0)  # Wipe previous layout selections cleanly
+            self.lbl_input_path.setText(f"Input Directory: {self.input_directory}")
 
-            # Scan destination for standard target container paths using pathlib extensions
+            if not self.chk_overwrite.isChecked() and not self.output_directory:
+                self.lbl_output_path.setText(
+                    f"Output Directory: Same as Input ({self.input_directory})"
+                )
+
+            self.table.setRowCount(0)
+
             valid_extensions = {".mp4", ".mov"}
             video_files = [
                 f
@@ -224,14 +287,10 @@ class SpatialMediaBatchGui(QMainWindow):
                 row = self.table.rowCount()
                 self.table.insertRow(row)
 
-                # Set clean text item reference labels
                 name_item = QTableWidgetItem(video.name)
-                name_item.setData(
-                    32, str(video)
-                )  # Store the underlying absolute path mapping inside item data
+                name_item.setData(32, str(video))
                 self.table.setItem(row, 0, name_item)
 
-                # Insert projection configurations dropdown component
                 combo_proj = QComboBox()
                 combo_proj.addItems(
                     [
@@ -240,31 +299,25 @@ class SpatialMediaBatchGui(QMainWindow):
                         "VR 180 (Front Dome)",
                     ]
                 )
-                combo_proj.setCurrentIndex(
-                    1
-                )  # Default selection to VR 360 matching current asset usage requirements
+                combo_proj.setCurrentIndex(1)
                 self.table.setCellWidget(row, 1, combo_proj)
 
-                # Insert stereoscopic structural configurations dropdown component
                 combo_stereo = QComboBox()
                 combo_stereo.addItems(["none", "top-bottom", "left-right"])
-                combo_stereo.setCurrentIndex(
-                    2
-                )  # Default selection to Side-by-Side Left-Right parameters
+                combo_stereo.setCurrentIndex(2)
                 self.table.setCellWidget(row, 2, combo_stereo)
 
-                # Add spatial audio toggles
                 chk_audio = QCheckBox()
                 chk_audio.setChecked(False)
+                from PyQt6.QtCore import Qt
+
                 container_widget = QWidget()
                 cell_layout = QHBoxLayout(container_widget)
                 cell_layout.addWidget(chk_audio)
-                # Correct PyQt6 alignment implementation using the native enum
                 cell_layout.setAlignment(chk_audio, Qt.AlignmentFlag.AlignCenter)
                 cell_layout.setContentsMargins(0, 0, 0, 0)
                 self.table.setCellWidget(row, 3, container_widget)
 
-                # Add deletion cleanup action triggers dynamically
                 btn_remove = QPushButton("❌")
                 btn_remove.setStyleSheet(
                     "background-color: #dc3545; color: white; font-weight: bold; border-radius: 4px;"
@@ -278,6 +331,17 @@ class SpatialMediaBatchGui(QMainWindow):
                 f"[Loaded Data] Discovered and built {len(video_files)} active elements out of directory space."
             )
 
+    def select_output_directory(self):
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Choose Target Extraction Target Directory", ""
+        )
+        if dir_path:
+            self.output_directory = Path(dir_path)
+            self.lbl_output_path.setText(f"Output Directory: {self.output_directory}")
+            self.log_console.append(
+                f"[Output Space Assigned Location]: {self.output_directory}"
+            )
+
     def remove_table_row(self, row_index):
         """Safely removes an explicit row grid matching index layout location boundaries."""
         # Because dynamic deletions offset array position pointers, we locate object origin indexes safely
@@ -287,16 +351,6 @@ class SpatialMediaBatchGui(QMainWindow):
                 if self.table.cellWidget(r, 4) == button:
                     self.table.removeRow(r)
                     break
-
-    def select_output_directory(self):
-        dir_path = QFileDialog.getExistingDirectory(
-            self, "Choose Target Extraction Target Directory", ""
-        )
-        if dir_path:
-            self.output_directory = Path(dir_path)
-            self.log_console.append(
-                f"[Output Space Assigned Location]: {self.output_directory}"
-            )
 
     def execute_batch_pipeline(self):
         row_count = self.table.rowCount()
@@ -311,12 +365,16 @@ class SpatialMediaBatchGui(QMainWindow):
         tasks = []
         for r in range(row_count):
             name_item = self.table.item(r, 0)
-            infile_path = name_item.data(32)
 
+            # FIX: Strip old execution checkmarks/crosses so the file list resets cleanly
+            current_text = name_item.text()
+            clean_text = current_text.lstrip("✓ ✗ ⏳ ")
+            name_item.setText(clean_text)
+
+            infile_path = name_item.data(32)
             combo_proj = self.table.cellWidget(r, 1)
             combo_stereo = self.table.cellWidget(r, 2)
 
-            # Access embedded cell checklist widget elements safely
             audio_container = self.table.cellWidget(r, 3)
             chk_audio = audio_container.findChild(QCheckBox)
 
@@ -341,6 +399,12 @@ class SpatialMediaBatchGui(QMainWindow):
             tasks, self.chk_overwrite.isChecked(), self.output_directory
         )
         self.worker.log_signal.connect(self.log_console.append)
+
+        # Proactively tag the first item as processing ⏳
+        if row_count > 0:
+            item = self.table.item(0, 0)
+            item.setText(f"⏳ {item.text()}")
+
         self.worker.item_complete_signal.connect(
             self.update_row_completion_visual_feedback
         )
@@ -350,15 +414,22 @@ class SpatialMediaBatchGui(QMainWindow):
         self.worker.start()
 
     def update_row_completion_visual_feedback(self, row_index, success):
-        """Highlights row validation steps dynamically."""
-        for c in range(self.table.columnCount()):
-            item = self.table.item(row_index, c)
-            if item:
-                # Add text prefixes to clearly show the status of the row item
-                if success:
-                    item.setText(f"✓ {item.text()}")
-                else:
-                    item.setText(f"✗ {item.text()}")
+        """Highlights row validation steps dynamically and tracks queue indicators."""
+        # Update the file item that just finished processing
+        item = self.table.item(row_index, 0)
+        if item:
+            clean_text = item.text().lstrip("⏳ ")
+            if success:
+                item.setText(f"✓ {clean_text}")
+            else:
+                item.setText(f"✗ {clean_text}")
+
+        # Proactively mark the NEXT row in the batch list queue as processing ⏳
+        next_row = row_index + 1
+        if next_row < self.table.rowCount():
+            next_item = self.table.item(next_row, 0)
+            if next_item:
+                next_item.setText(f"⏳ {next_item.text()}")
 
     def batch_processing_pipeline_completed(self):
         self.btn_run.setEnabled(True)
