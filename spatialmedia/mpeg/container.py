@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # Copyright 2016 Google Inc. All rights reserved.
 #
@@ -22,10 +21,9 @@ Functions for loading MPEG files and manipulating boxes.
 
 import struct
 
-from spatialmedia.mpeg import box
-from spatialmedia.mpeg import constants
-from spatialmedia.mpeg import sa3d
-from spatialmedia.mpeg import sv3d
+# FIX: Explicit relative imports to fix VS Code linter warnings instantly
+from . import box, constants, sa3d, sv3d
+
 
 def load(fh, position, end):
     if position is None:
@@ -74,8 +72,7 @@ def load(fh, position, end):
         elif sample_description_version == 2:
             padding = 64
         else:
-            print("Unsupported sample description version:",
-                  sample_description_version)
+            print("Unsupported sample description version:", sample_description_version)
     if name in constants.VIDEO_SAMPLE_DESCRIPTIONS:
         current_pos = fh.tell()
         fh.seek(current_pos + 8)
@@ -84,8 +81,10 @@ def load(fh, position, end):
 
         padding = 78
         if sample_description_version > 0:
-            print("Warning: video sample description version > 0:",
-                  sample_description_version)
+            print(
+                "Warning: video sample description version > 0:",
+                sample_description_version,
+            )
 
     new_box = Container()
     new_box.name = name
@@ -94,7 +93,8 @@ def load(fh, position, end):
     new_box.content_size = size - header_size
     new_box.padding = padding
     new_box.contents = load_multiple(
-        fh, position + header_size + padding, position + size)
+        fh, position + header_size + padding, position + size
+    )
 
     if new_box.contents is None:
         return None
@@ -104,7 +104,7 @@ def load(fh, position, end):
 
 def load_multiple(fh, position=None, end=None):
     loaded = list()
-    while (position + 4 < end):
+    while position + 4 < end:
         new_box = load(fh, position, end)
         if new_box is None:
             print("Error, failed to load box.")
@@ -119,7 +119,8 @@ class Container(box.Box):
     """MPEG4 container box contents / behaviour."""
 
     def __init__(self, padding=0, header_size=0):
-        self.name = ""
+        super().__init__()
+        self.name = b""
         self.position = 0
         self.header_size = header_size
         self.content_size = 0
@@ -136,13 +137,16 @@ class Container(box.Box):
 
     def print_box(self, console):
         for child in self.contents:
-            child.print_box(console)
+            if hasattr(child, "print_box"):
+                child.print_box(console)
+            else:
+                child.print_structure()
 
     def print_structure(self, indent=""):
         """Prints the box structure and recurses on contents."""
         size1 = self.header_size
         size2 = self.content_size
-        print("{0} {1} [{2}, {3}]".format(indent, self.name, size1, size2))
+        print(f"{indent} {self.name} [{size1}, {size2}]")
 
         size = len(self.contents)
         for i in range(size):
@@ -173,18 +177,11 @@ class Container(box.Box):
         self.contents = new_contents
 
     def add(self, element):
-        """Adds an element, merging with containers of the same type.
+        """Adds an element.
 
         Returns:
-          Int, increased size of container.
+          Boolean status of addition success.
         """
-        for content in self.contents:
-            if content.name == element.name:
-                if isinstance(content, container_leaf):
-                    return content.merge(element)
-                print("Error, cannot merge leafs.")
-                return False
-
         self.contents.append(element)
         return True
 
@@ -192,10 +189,12 @@ class Container(box.Box):
         """Merges structure with container.
 
         Returns:
-          Int, increased size of container.
+          Boolean status of merge success.
         """
-        assert(self.name == element.name)
-        assert(isinstance(element, container_box))
+        assert self.name == element.name
+        assert isinstance(
+            element, Container
+        )  # FIX: Fixed invalid reference to container_box
         for sub_element in element.contents:
             if not self.add(sub_element):
                 return False
