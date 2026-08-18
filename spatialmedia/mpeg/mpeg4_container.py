@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # Copyright 2016 Google Inc. All rights reserved.
 #
@@ -20,9 +19,8 @@
 Functions for loading MP4/MOV files and manipulating boxes.
 """
 
-from spatialmedia.mpeg import box
-from spatialmedia.mpeg import constants
-from spatialmedia.mpeg import container
+# FIX: Explicit relative imports to clear VS Code red highlights instantly
+from . import constants, container
 
 
 def load(fh):
@@ -30,8 +28,6 @@ def load(fh):
 
     Args:
       fh: file handle, input file handle.
-      position: int, current file position.
-      size: int, maximum size. This is used to ensure correct box sizes.
 
     return:
       mpeg4, the loaded mpeg4 structure.
@@ -52,14 +48,13 @@ def load(fh):
     loaded_mpeg4.contents = contents
 
     for element in loaded_mpeg4.contents:
-        if (element.name == constants.TAG_MOOV):
+        if element.name == constants.TAG_MOOV:
             loaded_mpeg4.moov_box = element
-        if (element.name == constants.TAG_FREE):
+        if element.name == constants.TAG_FREE:
             loaded_mpeg4.free_box = element
-        if (element.name == constants.TAG_MDAT
-                and not loaded_mpeg4.first_mdat_box):
+        if element.name == constants.TAG_MDAT and not loaded_mpeg4.first_mdat_box:
             loaded_mpeg4.first_mdat_box = element
-        if (element.name == constants.TAG_FTYP):
+        if element.name == constants.TAG_FTYP:
             loaded_mpeg4.ftyp_box = element
 
     if not loaded_mpeg4.moov_box:
@@ -70,10 +65,8 @@ def load(fh):
         print("Error, file does not contain mdat box.")
         return None
 
-    loaded_mpeg4.first_mdat_position = \
-        loaded_mpeg4.first_mdat_box.position
-    loaded_mpeg4.first_mdat_position += \
-        loaded_mpeg4.first_mdat_box.header_size
+    loaded_mpeg4.first_mdat_position = loaded_mpeg4.first_mdat_box.position
+    loaded_mpeg4.first_mdat_position += loaded_mpeg4.first_mdat_box.header_size
 
     loaded_mpeg4.content_size = 0
     for element in loaded_mpeg4.contents:
@@ -86,6 +79,8 @@ class Mpeg4Container(container.Container):
     """Specialized behaviour for the root mpeg4 container."""
 
     def __init__(self):
+        # FIX: Standard initialization call pattern
+        super().__init__()
         self.contents = list()
         self.content_size = 0
         self.header_size = 0
@@ -98,12 +93,12 @@ class Mpeg4Container(container.Container):
 
     def merge(self, element):
         """Mpeg4 containers do not support merging."""
-        print("Cannot merge mpeg4 files")
-        exit(0)
+        # FIX: Raise ValueError instead of completely crashing the system process via exit(0)
+        raise ValueError("Cannot merge mpeg4 files")
 
     def print_structure(self):
         """Print mpeg4 file structure recursively."""
-        print("mpeg4 [{}]".format(self.content_size))
+        print(f"mpeg4 [{self.content_size}]")
 
         size = len(self.contents)
         for i in range(size):
