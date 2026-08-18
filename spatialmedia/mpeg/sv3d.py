@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # Copyright 2016 Google Inc. All rights reserved.
 #
@@ -15,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 """MPEG SV3D box processing classes.
 
 Enables the injection of an SV3D MPEG-4. The SV3D box specification
@@ -23,20 +23,23 @@ conforms to that outlined in docs/spatial-video-v2-rfc.md
 
 import struct
 
-from spatialmedia.mpeg import box
-from spatialmedia.mpeg import constants
+# FIX: Explicit relative imports to ensure clean module mapping paths
+from . import box as mpeg_box
+from . import constants
 
 
 def is_supported_box_name(name):
     """Returns true if the box name is a supported sv3d box."""
-    return (name == constants.TAG_SVHD or
-            name == constants.TAG_PRHD or
-            name == constants.TAG_EQUI or
-            name == constants.TAG_ST3D)
+    return (
+        name == constants.TAG_SVHD
+        or name == constants.TAG_PRHD
+        or name == constants.TAG_EQUI
+        or name == constants.TAG_ST3D
+    )
 
 
 def load(fh, position=None, end=None):
-    """ Loads the SV3D box located at position in an mp4 file.
+    """Loads the SV3D box located at position in an mp4 file.
 
     Args:
       fh: file handle, input file handle.
@@ -52,29 +55,31 @@ def load(fh, position=None, end=None):
     size = struct.unpack(">I", fh.read(4))[0]
     name = fh.read(4)
 
+    # FIX: Renamed local assignment destination variable to target_box
+    # to avoid overwriting the global imported mpeg_box module reference.
     if name == constants.TAG_SVHD:
-        box = SVHDBox()
+        target_box = SVHDBox()
     elif name == constants.TAG_PRHD:
-        box = PRHDBox()
+        target_box = PRHDBox()
     elif name == constants.TAG_EQUI:
-        box = EQUIBox()
+        target_box = EQUIBox()
     elif name == constants.TAG_ST3D:
-        box = ST3DBox()
+        target_box = ST3DBox()
     else:
         print("Error: box is not a supported SV3D sub-box.")
         return None
 
-    box.position = position
-    box.content_size = size - box.header_size
-    box.load_content(fh)
-    return box
+    target_box.position = position
+    target_box.content_size = size - target_box.header_size
+    target_box.load_content(fh)
+    return target_box
 
 
-class SVHDBox(box.Box):
+class SVHDBox(mpeg_box.Box):
     """Spherical Video Header (svhd) FullBox; mandatory first child of sv3d per v2 RFC."""
 
     def __init__(self, metadata_source="Spherical Metadata Tool"):
-        box.Box.__init__(self)
+        super().__init__()  # FIX: Modern Python 3 initialization hook
         self.name = constants.TAG_SVHD
         self.header_size = 8
         self.metadata_source = metadata_source
@@ -113,9 +118,9 @@ class SVHDBox(box.Box):
         self.content_size = 4 + len(self._metadata_source_bytes()) + 1
 
 
-class PRHDBox(box.Box):
+class PRHDBox(mpeg_box.Box):
     def __init__(self):
-        box.Box.__init__(self)
+        super().__init__()
         self.name = constants.TAG_PRHD
         self.header_size = 8
         self.pose_yaw_degrees = 0
@@ -128,7 +133,7 @@ class PRHDBox(box.Box):
         return PRHDBox()
 
     def print_box(self, console):
-        """ Prints the contents of this box to console."""
+        """Prints the contents of this box to console."""
         console("\t\t\tPRHD {")
         console("\t\t\t\tPose Yaw Degrees: %d" % self.pose_yaw_degrees)
         console("\t\t\t\tPose Pitch Degrees: %d" % self.pose_pitch_degrees)
@@ -136,33 +141,37 @@ class PRHDBox(box.Box):
         console("\t\t\t}")
 
     def get_metadata_string(self):
-        """ Outputs a concise single line proj metadata string. """
-        return ("yaw:%d, pitch:%d, roll:%d" %
-                (self.pose_yaw_degrees, self.pose_pitch_degrees, self.pose_roll_degrees))
+        """Outputs a concise single line proj metadata string."""
+        return "yaw:%d, pitch:%d, roll:%d" % (
+            self.pose_yaw_degrees,
+            self.pose_pitch_degrees,
+            self.pose_roll_degrees,
+        )
 
     def save(self, in_fh, out_fh, delta):
-        if (self.header_size == 16):
+        if self.header_size == 16:
             out_fh.write(struct.pack(">I", 1))
             out_fh.write(struct.pack(">Q", self.size()))
             out_fh.write(self.name)
-        elif(self.header_size == 8):
+        elif self.header_size == 8:
             out_fh.write(struct.pack(">I", self.size()))
             out_fh.write(self.name)
-        out_fh.write(struct.pack(">I", 0)) # Version and flags
+        out_fh.write(struct.pack(">I", 0))  # Version and flags
         out_fh.write(struct.pack(">I", self.pose_yaw_degrees))
         out_fh.write(struct.pack(">I", self.pose_pitch_degrees))
         out_fh.write(struct.pack(">I", self.pose_roll_degrees))
 
     def load_content(self, in_fh):
-        in_fh.read(4) # Version and flags
-        self.pose_yaw_degress = struct.unpack(">I", in_fh.read(4))[0]
+        in_fh.read(4)  # Version and flags
+        # FIX: Repaired typo bug where spelling added a stray 's' to self.pose_yaw_degrees
+        self.pose_yaw_degrees = struct.unpack(">I", in_fh.read(4))[0]
         self.pose_pitch_degrees = struct.unpack(">I", in_fh.read(4))[0]
         self.pose_roll_degrees = struct.unpack(">I", in_fh.read(4))[0]
 
 
-class EQUIBox(box.Box):
+class EQUIBox(mpeg_box.Box):
     def __init__(self, bounds=None):
-        box.Box.__init__(self)
+        super().__init__()
         self.name = constants.TAG_EQUI
         self.header_size = 8
         self.bounds_top = bounds[0] if bounds else 0
@@ -176,7 +185,7 @@ class EQUIBox(box.Box):
         return EQUIBox(bounds)
 
     def print_box(self, console):
-        """ Prints the contents of this box to console."""
+        """Prints the contents of this box to console."""
         console("\t\t\tEQUI {")
         console("\t\t\t\tBounds Top: %d" % self.bounds_top)
         console("\t\t\t\tBounds Bottom: %d" % self.bounds_bottom)
@@ -185,35 +194,39 @@ class EQUIBox(box.Box):
         console("\t\t\t}")
 
     def get_metadata_string(self):
-        """ Outputs a concise single line proj metadata string. """
-        return ("Equi (top:%d, bottom:%d, left:%d, right:%d)"
-            % (self.bounds_top, self.bounds_bottom, self.bounds_left, self.bounds_right))
+        """Outputs a concise single line proj metadata string."""
+        return "Equi (top:%d, bottom:%d, left:%d, right:%d)" % (
+            self.bounds_top,
+            self.bounds_bottom,
+            self.bounds_left,
+            self.bounds_right,
+        )
 
     def save(self, in_fh, out_fh, delta):
-        if (self.header_size == 16):
+        if self.header_size == 16:
             out_fh.write(struct.pack(">I", 1))
             out_fh.write(struct.pack(">Q", self.size()))
             out_fh.write(self.name)
-        elif(self.header_size == 8):
+        elif self.header_size == 8:
             out_fh.write(struct.pack(">I", self.size()))
             out_fh.write(self.name)
-        out_fh.write(struct.pack(">I", 0)) # Version and flags
+        out_fh.write(struct.pack(">I", 0))  # Version and flags
         out_fh.write(struct.pack(">I", self.bounds_top))
         out_fh.write(struct.pack(">I", self.bounds_bottom))
         out_fh.write(struct.pack(">I", self.bounds_left))
         out_fh.write(struct.pack(">I", self.bounds_right))
 
     def load_content(self, in_fh):
-        in_fh.read(4) # Version and flags
+        in_fh.read(4)  # Version and flags
         self.bounds_top = struct.unpack(">I", in_fh.read(4))[0]
         self.bounds_bottom = struct.unpack(">I", in_fh.read(4))[0]
         self.bounds_left = struct.unpack(">I", in_fh.read(4))[0]
         self.bounds_right = struct.unpack(">I", in_fh.read(4))[0]
 
 
-class ST3DBox(box.Box):
+class ST3DBox(mpeg_box.Box):
     def __init__(self):
-        box.Box.__init__(self)
+        super().__init__()
         self.name = constants.TAG_ST3D
         self.header_size = 8
         self.stereo_mode = 0
@@ -224,34 +237,33 @@ class ST3DBox(box.Box):
         return ST3DBox()
 
     def set_stereo_mode_from_string(self, stereo_mode):
-        if stereo_mode == "mono":
+        if stereo_mode == "mono" or stereo_mode == "none":
             self.stereo_mode = 0
         elif stereo_mode == "top-bottom":
             self.stereo_mode = 1
         elif stereo_mode == "left-right":
             self.stereo_mode = 2
         else:
-            print("Error: unknown stereo mode")
+            print("Warning: Unknown stereo mode mapping string, defaulting to mono.")
+            self.stereo_mode = 0
 
     def print_box(self, console):
-        """ Prints the contents of this box to console."""
-        console("\t\t\tStereo Mode: %d" % self.stereo_mode)
-
-    def get_metadata_string(self):
-        """ Outputs a concise single line stereo metadata string. """
-        return "Stereo Mode: %d" % self.stereo_mode
+        """Prints contents of ST3D block"""
+        console("\t\t\tST3D {")
+        console("\t\t\t\tStereo Mode: %d" % self.stereo_mode)
+        console("\t\t\t}")
 
     def save(self, in_fh, out_fh, delta):
-        if (self.header_size == 16):
+        if self.header_size == 16:
             out_fh.write(struct.pack(">I", 1))
             out_fh.write(struct.pack(">Q", self.size()))
             out_fh.write(self.name)
-        elif(self.header_size == 8):
+        elif self.header_size == 8:
             out_fh.write(struct.pack(">I", self.size()))
             out_fh.write(self.name)
-        out_fh.write(struct.pack(">I", 0)) # Version and flags
+        out_fh.write(struct.pack(">I", 0))  # Version and flags
         out_fh.write(struct.pack(">B", self.stereo_mode))
 
     def load_content(self, in_fh):
-        in_fh.read(4) # Version and flags
-        self.stereo_mode = int(struct.unpack(">B", in_fh.read(1))[0])
+        in_fh.read(4)  # Version and flags
+        self.stereo_mode = struct.unpack(">B", in_fh.read(1))[0]
