@@ -120,16 +120,46 @@ class SpatialMediaGui(QMainWindow):
         base, ext = os.path.splitext(infile)
         outfile = f"{base}_injected{ext}"
 
-        # Populate internal parsed Metadata object models structured by google/spatial-media
         metadata = metadata_utils.Metadata()
-        metadata.video = metadata_utils.VideoMetadata()
-        metadata.video.spherical = self.chk_spherical.isChecked()
-        metadata.video.stereo = self.combo_stereo.currentText()
-        metadata.audio = (
-            metadata_utils.AudioMetadata()
-            if self.chk_spatial_audio.isChecked()
-            else None
-        )
+
+        # Configure the spherical video xml blocks
+        # spatial-media creates the xml string natively using generate_spherical_xml
+        stereo_mode = self.combo_stereo.currentText()
+        if stereo_mode == "none":
+            stereo_mode = None
+
+        if self.chk_spherical.isChecked():
+            metadata.video = metadata_utils.generate_spherical_xml(
+                "equirectangular", stereo_mode
+            )
+
+        # Configure the spatial audio block
+        if self.chk_spatial_audio.isChecked():
+            # Run a quick check on channels using the native tool
+            def silent_logger(msg):
+                pass
+
+            parsed_info = metadata_utils.parse_metadata(infile, silent_logger)
+
+            # Use spatial-media internal hooks to format the audio properties
+            if parsed_info and hasattr(parsed_info, "num_audio_channels"):
+                spatial_audio_description = (
+                    metadata_utils.get_spatial_audio_description(
+                        parsed_info.num_audio_channels
+                    )
+                )
+                if spatial_audio_description.is_supported:
+                    metadata.audio = metadata_utils.get_spatial_audio_metadata(
+                        spatial_audio_description.order,
+                        spatial_audio_description.has_head_locked_stereo,
+                    )
+                else:
+                    self.log_console.append(
+                        f"[Warning] Audio format with {parsed_info.num_audio_channels} channels is unsupported."
+                    )
+            else:
+                # Default safety fallback if parse_metadata fails to read the format details
+                metadata.audio = metadata_utils.get_spatial_audio_metadata(1, False)
 
         self.btn_inject.setEnabled(False)
         self.log_console.append("Starting parsing process...")
