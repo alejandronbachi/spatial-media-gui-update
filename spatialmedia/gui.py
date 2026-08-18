@@ -72,10 +72,18 @@ class SpatialMediaGui(QMainWindow):
         layout.addWidget(QLabel("Input Video File:"))
         layout.addLayout(file_layout)
 
-        # Spatial Media Options Checklist
-        self.chk_spherical = QCheckBox("My video is spherical (360 degrees)")
+        # Projection Mode Dropdown Selector
+        proj_layout = QHBoxLayout()
+        proj_layout.addWidget(QLabel("Projection Environment Type:"))
+        self.combo_projection = QComboBox()
+        self.combo_projection.addItems(
+            ["Flat / Standard Video", "VR 360 (Full Spherical)", "VR 180 (Front Dome)"]
+        )
+        self.combo_projection.setCurrentIndex(1)
+        proj_layout.addWidget(self.combo_projection)
+        layout.addLayout(proj_layout)
+
         self.chk_spatial_audio = QCheckBox("My video has spatial audio (Ambisonics)")
-        layout.addWidget(self.chk_spherical)
         layout.addWidget(self.chk_spatial_audio)
 
         # Stereo Dropdown Options
@@ -120,17 +128,30 @@ class SpatialMediaGui(QMainWindow):
         base, ext = os.path.splitext(infile)
         outfile = f"{base}_injected{ext}"
 
+        # Populate internal parsed Metadata object models structured by google/spatial-media
         metadata = metadata_utils.Metadata()
 
-        # Configure the spherical video xml blocks
-        # spatial-media creates the xml string natively using generate_spherical_xml
+        selected_proj = self.combo_projection.currentText()
         stereo_mode = self.combo_stereo.currentText()
         if stereo_mode == "none":
             stereo_mode = None
 
-        if self.chk_spherical.isChecked():
+        if selected_proj == "VR 360 (Full Spherical)":
+            # Pure standard 360 sphere
             metadata.video = metadata_utils.generate_spherical_xml(
                 "equirectangular", stereo_mode
+            )
+        elif selected_proj == "VR 180 (Front Dome)":
+            # VR 180 is handled by the engine as an equirectangular projection
+            # with a 50% horizontal crop scale parameter.
+            # Format: CroppedWidth:CroppedHeight:FullWidth:FullHeight:LeftOffset:TopOffset
+            # For a perfect 180 dome cut from a 360 canvas:
+            # Width is halved (1:2 ratio), offset starts exactly at 0.
+            crop_string = "1:2:2:2:0:0"
+
+            # Pass the string correctly to the native function
+            metadata.video = metadata_utils.generate_spherical_xml(
+                "equirectangular", stereo_mode, crop_string
             )
 
         # Configure the spatial audio block
