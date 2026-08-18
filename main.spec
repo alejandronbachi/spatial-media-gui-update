@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+block_cipher = None
 
 a = Analysis(
     ['main.py'],
@@ -14,15 +15,15 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
-pyz = PYZ(a.pure)
+
+pyz = PYZ(a.pure, a.zipped_data)
 
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
     a.datas,
-    [],
-    name='main',
+    name='SpatialMediaBatchInjector', 
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
