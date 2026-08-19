@@ -1,0 +1,98 @@
+name: Compile Cross-Platform Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*' # Automatically triggers whenever you push a tag like v1.0.0
+
+jobs:
+  build:
+    name: Build Release Asset
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            spec: windows.spec
+            artifact_name: SpatialMediaBatchInjector-Windows.zip
+            platform: windows
+          - os: ubuntu-latest
+            spec: linux.spec
+            artifact_name: SpatialMediaBatchInjector-x86_64.AppImage
+            platform: linux
+          - os: macos-latest
+            spec: macos.spec
+            artifact_name: SpatialMediaBatchInjector-macOS.zip
+            platform: macos
+
+    steps:
+      - name: Check Out Repository Code Base
+        uses: actions/checkout@v4
+
+      - name: Initialize Target Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache Python Package Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install Application Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyqtdarktheme==2.1.0 --ignore-requires-python
+
+      # ==========================================
+      # WINDOWS RUN: STANDALONE SINGLE EXECUTABLE
+      # ==========================================
+      - name: Compile Windows Executable
+        if: matrix.platform == 'windows'
+        run: |
+          pyinstaller windows.spec
+          powershell Compress-Archive -Path dist/SpatialMediaBatchInjector.exe -DestinationPath ${{ matrix.artifact_name }}
+
+      # ==========================================
+      # LINUX RUN: CLEAN SPEC COMPILATION
+      # ==========================================
+      - name: Compile Linux AppImage Universal Package
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y binutils
+          pyinstaller linux.spec
+          
+          # Download the packing utility cleanly
+          curl -Lo appimagetool-x86_64.AppImage https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+
+          chmod +x appimagetool-x86_64.AppImage
+          
+          # Fix: Drop our quick system links inside the ready-made PyInstaller build folder
+          ln -s /home/runner/work/spatial-media-gui-update/spatial-media-gui-update/assets/SpatialMediaBatchInjector.desktop dist/SpatialMediaBatchInjector/SpatialMediaBatchInjector.desktop
+          ln -s /home/runner/work/spatial-media-gui-update/spatial-media-gui-update/assets/icons/app_icon.png dist/SpatialMediaBatchInjector/SpatialMediaBatchInjector.png
+          
+          # Pack the universal artifact instantly with zero folder building hacks!
+          ./appimagetool-x86_64.AppImage --appimage-extract-and-run dist/SpatialMediaBatchInjector
+          mv Spatial_Media_Batch_Injector-x86_64.AppImage ${{ matrix.artifact_name }}
+
+      # ==========================================
+      # MACOS RUN: NATIVE APP BUNDLE COMPILATION
+      # ==========================================
+      - name: Compile macOS Application Bundle
+        if: matrix.platform == 'macos'
+        run: |
+          pyinstaller macos.spec
+          ditto -c -k --sequesterRsrc --keepParent dist/SpatialMediaBatchInjector.app ${{ matrix.artifact_name }}
+
+      # ==========================================
+      # AUTOMATED CLOUD DEPLOYMENT BLOCK
+      # ==========================================
+      - name: Upload Compiled Binary Package to GitHub Release Page
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
