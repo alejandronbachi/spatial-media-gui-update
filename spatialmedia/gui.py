@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+import qdarktheme
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon
 from PyQt6.QtWidgets import (
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QStyle,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -159,7 +161,10 @@ class SpatialMediaBatchGui(QMainWindow):
 
         # ROW 1: Input controls updated with your text preferences
         input_row = QHBoxLayout()
-        btn_open_dir = QPushButton("📁 Load Videos")
+        btn_open_dir = QPushButton("Load Videos")
+        btn_open_dir.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        )
         btn_open_dir.setMinimumWidth(150)
         btn_open_dir.clicked.connect(self.select_input_directory_picker)
 
@@ -175,7 +180,10 @@ class SpatialMediaBatchGui(QMainWindow):
 
         # ROW 2: Output controls updated with your text preferences
         output_row = QHBoxLayout()
-        self.btn_output_dir = QPushButton("📂 Set Output")
+        self.btn_output_dir = QPushButton("Set Output")
+        self.btn_output_dir.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DriveNetIcon)
+        )
         self.btn_output_dir.setMinimumWidth(150)
         self.btn_output_dir.clicked.connect(self.select_output_directory)
 
@@ -191,7 +199,10 @@ class SpatialMediaBatchGui(QMainWindow):
         paths_and_checkbox_container.addLayout(path_rows_stack, stretch=1)
 
         checkbox_panel = QVBoxLayout()
-        self.chk_overwrite = QCheckBox("⚠️ Overwrite Source Files")
+        self.chk_overwrite = QCheckBox("Overwrite Source Files")
+        self.chk_overwrite.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
+        )
         checkbox_panel.addWidget(self.chk_overwrite)
         self.chk_overwrite.toggled.connect(self.toggle_overwrite_mode)
 
@@ -265,10 +276,12 @@ class SpatialMediaBatchGui(QMainWindow):
 
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
+            self.setWindowIconText("SpatialMediaBatchInjector")
         else:
             self.log_console.append(
                 f"[Warning] Window icon graphic asset missing at path: {icon_path.name}"
             )
+        qdarktheme.setup_theme("dark")
 
     # ==========================================
     # NEW: DRAG AND DROP INTERACTION EVENT HANDLERS
@@ -364,9 +377,12 @@ class SpatialMediaBatchGui(QMainWindow):
             self.table.setCellWidget(row, 3, container_widget)
 
             # Add deletion cleanup action triggers dynamically
-            btn_remove = QPushButton("🗑️")
+            btn_remove = QPushButton()
+            btn_remove.setIcon(
+                self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+            )
             btn_remove.setStyleSheet(
-                "padding: 2px; font-size: 14px; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa;"
+                "border: none; background: transparent; padding: 2px;"
             )
             # Add a slight hover effect style sheet rule to make it interactive
             btn_remove.setToolTip("Remove video from queue")
@@ -454,6 +470,9 @@ class SpatialMediaBatchGui(QMainWindow):
                 )
             self.lbl_output_path.setStyleSheet(
                 "color: #555555; background-color: #f8f9fa; padding: 6px; border: 1px solid #e9ecef; border-radius: 4px; font-family: Consolas, monospace;"
+            )
+            self.log_console.append(
+                "[System Output Notice] Overwrite disabled. Modified files will be exported as separate files with '_injected' added to their names."
             )
 
     def remove_table_row(self):
