@@ -18,7 +18,6 @@ jobs:
         include:
           - os: windows-latest
             spec: windows.spec
-            # FIX: Dynamically injects the release tag directly into the package names!
             artifact_name: SpatialMediaBatchInjector-${{ github.ref_name }}-Windows.zip
             platform: windows
           - os: ubuntu-latest
@@ -52,7 +51,7 @@ jobs:
           pip install pyqtdarktheme==2.1.0 --ignore-requires-python
 
       # ==========================================
-      # WINDOWS RUN: STANDALONE SINGLE EXECUTABLE
+      # WINDOWS RUN: STANDALONE EXECUTABLE
       # ==========================================
       - name: Compile Windows Executable
         if: matrix.platform == 'windows'
@@ -61,26 +60,42 @@ jobs:
           powershell Compress-Archive -Path dist/SpatialMediaBatchInjector.exe -DestinationPath ${{ matrix.artifact_name }}
 
       # ==========================================
-      # LINUX RUN: CLEAN SPEC COMPILATION
+      # LINUX RUN: CLEAN SYSTEM COMPILATION PASS
       # ==========================================
-      - name: Compile Linux AppImage Universal Package
+      - name: Compile Linux Binary Directory
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update && sudo apt-get install -y binutils
           pyinstaller linux.spec
           
-          curl -Lo appimagetool-x86_64.AppImage https://github.com
-          chmod +x appimagetool-x86_64.AppImage
-          
-          # Dynamic file mapping link paths hook
-          ln -s /home/runner/work/spatial-media-gui-update/spatial-media-gui-update/assets/SpatialMediaBatchInjector.desktop dist/SpatialMediaBatchInjector/SpatialMediaBatchInjector.desktop
-          ln -s /home/runner/work/spatial-media-gui-update/spatial-media-gui-update/assets/icons/app_icon.png dist/SpatialMediaBatchInjector/SpatialMediaBatchInjector.png
-          
-          ./appimagetool-x86_64.AppImage --appimage-extract-and-run dist/SpatialMediaBatchInjector
-          mv Spatial_Media_Batch_Injector-x86_64.AppImage ${{ matrix.artifact_name }}
+          # Native Python file utility script copy (No absolute host paths required)
+          python3 -c "
+          import shutil
+          from pathlib import Path
+          build_dir = Path('dist/SpatialMediaBatchInjector')
+          shutil.copy('assets/SpatialMediaBatchInjector.desktop', build_dir / 'SpatialMediaBatchInjector.desktop')
+          shutil.copy('assets/icons/app_icon.png', build_dir / 'SpatialMediaBatchInjector.png')
+          "
+
+      # STANDARD ACTION RUNNER: Replaces your hacky curl download and manual appimagetool loops entirely!
+      - name: Package Universal AppImage Container Natively
+        if: matrix.platform == 'linux'
+        uses: AppImageCrafters/build-appimage-action@v1
+        with:
+          recipe: |
+            version: 1.0.0
+            AppDir:
+              path: ./dist/SpatialMediaBatchInjector
+              app_info:
+                id: SpatialMediaBatchInjector
+                name: Spatial Media Batch Injector
+                icon: SpatialMediaBatchInjector
+                version: 1.0.0
+                exec: AppRun
+              output: ./SpatialMediaBatchInjector-${{ github.ref_name }}-Linux.AppImage
 
       # ==========================================
-      # MACOS RUN: NATIVE APP BUNDLE COMPILATION
+      # MACOS RUN: NATIVE APP BUNDLE
       # ==========================================
       - name: Compile macOS Application Bundle
         if: matrix.platform == 'macos'
