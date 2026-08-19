@@ -8,6 +8,7 @@ from spatialmedia.gui import SpatialMediaBatchGui
 def main():
     app = QApplication(sys.argv)
     window = SpatialMediaBatchGui()
+    QApplication.setStyle("Fusion")
     window.show()
     sys.exit(app.exec())
 

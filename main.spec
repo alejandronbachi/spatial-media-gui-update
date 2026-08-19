@@ -11,7 +11,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['PySide6', 'shiboken6'],
     noarchive=False,
     optimize=0,
 )
