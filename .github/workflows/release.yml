@@ -3,7 +3,10 @@ name: Compile Cross-Platform Release Binaries
 on:
   push:
     tags:
-      - 'v*' # Automatically triggers whenever you push a tag like v1.0.0
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -15,15 +18,16 @@ jobs:
         include:
           - os: windows-latest
             spec: windows.spec
-            artifact_name: SpatialMediaBatchInjector-Windows.zip
+            # FIX: Dynamically injects the release tag directly into the package names!
+            artifact_name: SpatialMediaBatchInjector-${{ github.ref_name }}-Windows.zip
             platform: windows
           - os: ubuntu-latest
             spec: linux.spec
-            artifact_name: SpatialMediaBatchInjector-x86_64.AppImage
+            artifact_name: SpatialMediaBatchInjector-${{ github.ref_name }}-Linux.AppImage
             platform: linux
           - os: macos-latest
             spec: macos.spec
-            artifact_name: SpatialMediaBatchInjector-macOS.zip
+            artifact_name: SpatialMediaBatchInjector-${{ github.ref_name }}-macOS.zip
             platform: macos
 
     steps:
@@ -65,16 +69,13 @@ jobs:
           sudo apt-get update && sudo apt-get install -y binutils
           pyinstaller linux.spec
           
-          # Download the packing utility cleanly
-          curl -Lo appimagetool-x86_64.AppImage https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-
+          curl -Lo appimagetool-x86_64.AppImage https://github.com
           chmod +x appimagetool-x86_64.AppImage
           
-          # Fix: Drop our quick system links inside the ready-made PyInstaller build folder
+          # Dynamic file mapping link paths hook
           ln -s /home/runner/work/spatial-media-gui-update/spatial-media-gui-update/assets/SpatialMediaBatchInjector.desktop dist/SpatialMediaBatchInjector/SpatialMediaBatchInjector.desktop
           ln -s /home/runner/work/spatial-media-gui-update/spatial-media-gui-update/assets/icons/app_icon.png dist/SpatialMediaBatchInjector/SpatialMediaBatchInjector.png
           
-          # Pack the universal artifact instantly with zero folder building hacks!
           ./appimagetool-x86_64.AppImage --appimage-extract-and-run dist/SpatialMediaBatchInjector
           mv Spatial_Media_Batch_Injector-x86_64.AppImage ${{ matrix.artifact_name }}
 
