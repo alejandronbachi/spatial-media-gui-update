@@ -11,10 +11,10 @@ This repository replaces the abandoned 2016 command-line tool with a fully moder
     
   </p>
 
-## 💾 Installation & Downloads
+## 💾 Installation 
 
-For most users, there is no need to install Python or compile code manually. Pre-compiled standalone desktop binaries are built automatically on every release via 
-.
+Pre-compiled standalone desktop binaries are provided:
+
 
 1. Head over to the [**Latest Releases**](https://github.com/alejandronbachi/spatial-media-gui-update/releases) section on the right-hand panel of this repository.
 2. Download the compressed executable package tailored to your operating system:
