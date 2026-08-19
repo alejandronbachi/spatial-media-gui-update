@@ -60,7 +60,7 @@ jobs:
           powershell Compress-Archive -Path dist/SpatialMediaBatchInjector.exe -DestinationPath ${{ matrix.artifact_name }}
 
       # ==========================================
-      # LINUX RUN: EXPLICIT SPEC COMPILATION
+      # LINUX RUN: CLEAN SYSTEM SPEC COMPILATION
       # ==========================================
       - name: Compile Linux AppImage Universal Package
         if: matrix.platform == 'linux'
@@ -68,19 +68,19 @@ jobs:
           sudo apt-get update && sudo apt-get install -y binutils
           pyinstaller linux.spec
           
-          # Native Python script to arrange the AppImage metadata files
           python3 -c "
           import shutil
           from pathlib import Path
+          
           build_dir = Path('dist/SpatialMediaBatchInjector')
           shutil.copy('assets/SpatialMediaBatchInjector.desktop', build_dir / 'SpatialMediaBatchInjector.desktop')
           shutil.copy('assets/icons/app_icon.png', build_dir / 'SpatialMediaBatchInjector.png')
           print('Metadata structure finalized cleanly.')
           "
-          curl -Lo appimagetool-x86_64.AppImage https://github.com/download/continuous/appimagetool-x86_64.AppImage
+          curl -Lo appimagetool-x86_64.AppImage https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           
-          # Package the universal AppImage flawlessly using the FUSE bypass argument
+          # Package the universal AppImage using the FUSE bypass argument
           ./appimagetool-x86_64.AppImage --appimage-extract-and-run dist/SpatialMediaBatchInjector
           
           # Rename to your exact tagged file output requirements
