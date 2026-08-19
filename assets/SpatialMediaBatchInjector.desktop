@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Spatial Media Batch Injector
+Exec=AppRun
+Icon=SpatialMediaBatchInjector
+Comment=Inject spatial media metadata into MP4 and MOV containers.
+Categories=Utility;AudioVideo;
+Terminal=false

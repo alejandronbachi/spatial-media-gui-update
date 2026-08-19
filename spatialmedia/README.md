@@ -51,10 +51,3 @@ Enables injection of spatial audio metadata. If enabled, the file must contain a
 4-channel first-order ambisonics audio track with ACN channel ordering and SN3D
 normalization; see the [Spatial Audio RFC](../docs/spatial-audio-rfc.md) for
 more information.
-
-## Building standalone GUI application
-
-Install [PyInstaller](http://pythonhosted.org/PyInstaller/), then run the
-following:
-
-    pyinstaller spatial_media_metadata_injector.spec

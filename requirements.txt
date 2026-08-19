@@ -1,4 +1,5 @@
+PyQt6
 PyInstaller
-tk
 pillow
 packaging
+pyqtdarktheme

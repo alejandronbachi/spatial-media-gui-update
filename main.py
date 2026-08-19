@@ -2,13 +2,13 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
-# Clean, top-level absolute import
-from spatialmedia.gui import SpatialMediaGui
+from spatialmedia.gui import SpatialMediaBatchGui
 
 
 def main():
     app = QApplication(sys.argv)
-    window = SpatialMediaGui()
+    window = SpatialMediaBatchGui()
+    QApplication.setStyle("Fusion")
     window.show()
     sys.exit(app.exec())
 
